@@ -55,7 +55,7 @@ uvicorn app:app --reload
 The application will start at:
 
 ```text
-http://127.0.0.1:8000
+http://127.0.0.1:9000
 ```
 
 ## API Usage
@@ -63,14 +63,14 @@ http://127.0.0.1:8000
 ### Upload a PDF
 
 ```bash
-curl -X POST http://127.0.0.1:8000/upload \
+curl -X POST http://127.0.0.1:9000/upload \
 -F "file=@/path/to/document.pdf"
 ```
 
 ### Ask a Question
 
 ```bash
-curl -X POST http://127.0.0.1:8000/ask \
+curl -X POST http://127.0.0.1:9000/ask \
 -H "Content-Type: application/json" \
 -d '{"question":"What is this document about?"}'
 ```
