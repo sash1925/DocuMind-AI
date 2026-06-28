@@ -1,76 +1,90 @@
 # DocuMind AI
 
-DocuMind AI is a FastAPI application for asking questions about an uploaded PDF. It extracts text from the PDF, chunks the document, creates embeddings with `sentence-transformers/all-MiniLM-L6-v2`, stores them in a persistent ChromaDB index, and returns a grounded answer with the top 3 retrieved chunks.
+DocuMind AI is a Retrieval-Augmented Generation (RAG) based PDF Question Answering system built with FastAPI, LangChain, ChromaDB, Hugging Face embeddings, and Google Gemini. Users can upload PDF documents, ask questions about their content, and receive answers grounded in the uploaded document.
 
 ## Features
 
-- PDF upload endpoint: `POST /upload`
-- Question endpoint: `POST /ask`
-- Persistent ChromaDB storage in `chroma_db/`
-- `all-MiniLM-L6-v2` embeddings through LangChain Hugging Face integration
-- A polished browser UI at `/`
-- Hallucination guard that returns `I could not find relevant information in the document.` when retrieval confidence is too low
+* PDF upload endpoint (`POST /upload`)
+* Question answering endpoint (`POST /ask`)
+* Automatic document chunking
+* Semantic search using ChromaDB
+* Embeddings generated with `sentence-transformers/all-MiniLM-L6-v2`
+* Persistent vector storage
+* Hallucination guard for low-confidence retrieval
+* FastAPI-based REST API
 
-## Setup
+## Tech Stack
+
+* Python
+* FastAPI
+* LangChain
+* ChromaDB
+* Hugging Face Embeddings
+* Google Gemini
+* PyPDFLoader
+
+## Setup Instructions
+
+### 1. Create Virtual Environment
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+```
+
+### 2. Install Dependencies
+
+```bash
 pip install -r requirements.txt
+```
+
+### 3. Configure Environment Variables
+
+Create a `.env` file:
+
+```env
+GOOGLE_API_KEY=<YOUR_API_KEY>
+```
+
+### 4. Run the Application
+
+```bash
 uvicorn app:app --reload
 ```
 
-Open the app at [http://127.0.0.1:9000](http://127.0.0.1:9000).
+The application will start at:
+
+```text
+http://127.0.0.1:8000
+```
 
 ## API Usage
 
-Upload a PDF:
+### Upload a PDF
 
 ```bash
 curl -X POST http://127.0.0.1:8000/upload \
-  -F "file=@/path/to/document.pdf"
+-F "file=@/path/to/document.pdf"
 ```
 
-Ask a question:
+### Ask a Question
 
 ```bash
 curl -X POST http://127.0.0.1:8000/ask \
-  -H "Content-Type: application/json" \
-  -d '{"question":"What is this document about?"}'
-```
-
-Example response:
-
-```json
-{
-  "answer": "The answer generated from retrieved document context.",
-  "chunks": [
-    {
-      "content": "Retrieved text chunk...",
-      "page": 0,
-      "score": 0.72
-    }
-  ]
-}
+-H "Content-Type: application/json" \
+-d '{"question":"What is this document about?"}'
 ```
 
 ## Submission Note
 
-I selected a chunk size of 700 characters with 100 characters of overlap because PDF text often contains dense paragraphs, headings, and page-boundary artifacts. A 700-character chunk is large enough to preserve local meaning for factual questions, while still small enough for precise retrieval. The 100-character overlap helps retain context when an answer spans the end of one chunk and the beginning of another, reducing the chance that related sentences are separated during retrieval.
+### Why I Selected This Chunk Size and Overlap
 
-The implementation mitigates hallucinations by grounding every answer in the top retrieved ChromaDB chunks. The `/ask` endpoint returns those top 3 chunks alongside the answer so the user can inspect the evidence. It also applies a minimum relevance score threshold. If the highest retrieved chunk is not relevant enough, the API returns `I could not find relevant information in the document.` instead of inventing an answer. The answer generator is extractive and uses sentences from retrieved context, so it avoids adding unsupported outside knowledge.
+I selected a chunk size of 700 characters with a 100-character overlap. A chunk size of 700 preserves enough surrounding context for meaningful semantic retrieval while remaining small enough to maintain retrieval precision. The 100-character overlap helps retain information that spans chunk boundaries, reducing the possibility of losing important context when text is split into multiple chunks.
 
-To support multiple users, the app would need document ownership and separate vector collections or metadata filters per user and document. Uploads should be stored under user-specific paths, and Chroma records should include `user_id`, `document_id`, filename, and page metadata. Authentication would be required before upload or question requests. The `/ask` endpoint would then search only the authenticated user’s selected document or document set. For production, background indexing, file size limits, rate limits, and cleanup jobs should also be added.
+### How the Implementation Mitigates Hallucinations
 
-## GitHub Repository
+The application uses a Retrieval-Augmented Generation (RAG) approach. Before generating an answer, relevant chunks are retrieved from ChromaDB using semantic similarity search. The answer is generated only from the retrieved context rather than relying solely on the language model's internal knowledge. A relevance threshold is also applied. If retrieval confidence is too low, the system returns: "I could not find relevant information in the document." This prevents the model from generating unsupported or fabricated answers.
 
-This local folder is not currently initialized as a git repository. After creating a GitHub repository, run:
+### Supporting Multiple Users
 
-```bash
-git init
-git add app.py README.md requirements.txt .gitignore
-git commit -m "Build PDF question answering API"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/DocuMind-AI.git
-git push -u origin main
-```
+To support multiple users, the application would require authentication and user-specific document management. Each uploaded document should be associated with a unique user ID, and embeddings should be stored in separate collections or filtered using metadata. The retrieval pipeline would search only the authenticated user's documents. For a production environment, a relational database such as PostgreSQL could be added to manage users, document metadata, permissions, and audit logs securely.
